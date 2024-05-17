@@ -192,9 +192,9 @@ namespace blog_website_api.Controllers
         }
 
 
-        // GET: api/users
-        [HttpGet]
-        public async Task<IActionResult> GetUsers()
+        // GET: api/users/all
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAllUsers()
         {
             var users = await _context.Users.Find(_ => true).ToListAsync();
             return Ok(users);
@@ -286,3 +286,53 @@ dotnet run
     "Role": "USER"
 }
 ```
+
+## Swagger
+
+dotnet add package Swashbuckle.AspNetCore
+
+In Program.cs import the library:
+using Microsoft.OpenApi.Models;
+
+Inside Program.cs update builder.Services.AddSwaggerGen(); to this:
+
+builder.Services.AddSwaggerGen(c =>
+{
+c.SwaggerDoc("v1", new OpenApiInfo
+{
+Title = "Blog Website API",
+Version = "v1",
+Description = "An API for managing users in a blog website.",
+Contact = new OpenApiContact
+{
+Name = "Emir Kugic",
+Email = "emir.kugic@stu.ibu.edu.ba",
+Url = new Uri("https://www.ibu.edu.ba/")
+},
+
+    });
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+
+});
+
+See swagger: http://localhost:5179/swagger/index.html
+
+Inside your .csproj file add this:
+
+<PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+</PropertyGroup>
+
+To add custom swagger annotation, go to UsersController.cs and add this:
+// GET: api/users with pagination
+// to use it in Postman http://localhost:5000/api/users?page=2&pageSize=5
+/// <summary>
+/// Retrieves all users with pagination.
+/// </summary>
+/// <param name="page">The page number of the pagination.</param>
+/// <param name="pageSize">The number of items per page.</param>
+/// <returns>A list of users with pagination information.</returns>
+[HttpGet]

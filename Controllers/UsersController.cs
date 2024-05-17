@@ -19,9 +19,9 @@ namespace blog_website_api.Controllers
         }
 
 
-        // GET: api/users
-        [HttpGet]
-        public async Task<IActionResult> GetUsers()
+        // GET: api/users/all
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAllUsers()
         {
             var users = await _context.Users.Find(_ => true).ToListAsync();
             return Ok(users);
@@ -30,13 +30,18 @@ namespace blog_website_api.Controllers
 
         // GET: api/users with pagination
         // to use it in Postman http://localhost:5000/api/users?page=2&pageSize=5
+        /// <summary>
+        /// Retrieves all users with pagination.
+        /// </summary>
+        /// <param name="page">The page number of the pagination.</param>
+        /// <param name="pageSize">The number of items per page.</param>
+        /// <returns>A list of users with pagination information.</returns>
         [HttpGet]
         public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             var usersQuery = _context.Users.Find(_ => true);
             var totalItems = await usersQuery.CountDocumentsAsync();
             var users = await usersQuery.Skip((page - 1) * pageSize).Limit(pageSize).ToListAsync();
-
             var response = new
             {
                 TotalItems = totalItems,
