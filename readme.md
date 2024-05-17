@@ -289,13 +289,21 @@ dotnet run
 
 ## Swagger
 
+To install the dependency for swagger, run command:
+
+```bash
 dotnet add package Swashbuckle.AspNetCore
+```
 
-In Program.cs import the library:
+In `Program.cs` import the library:
+
+```csharp
 using Microsoft.OpenApi.Models;
+```
 
-Inside Program.cs update builder.Services.AddSwaggerGen(); to this:
+Inside Program.cs update `builder.Services.AddSwaggerGen();` to this:
 
+```csharp
 builder.Services.AddSwaggerGen(c =>
 {
 c.SwaggerDoc("v1", new OpenApiInfo
@@ -316,23 +324,225 @@ Url = new Uri("https://www.ibu.edu.ba/")
     c.IncludeXmlComments(xmlPath);
 
 });
+```
 
-See swagger: http://localhost:5179/swagger/index.html
+To see swagger in your browser visit:
 
-Inside your .csproj file add this:
+```bash
+http://localhost:5179/swagger/index.html
+```
 
+Inside your `.csproj` file add this:
+
+```html
 <PropertyGroup>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);1591</NoWarn>
+	<GenerateDocumentationFile>true</GenerateDocumentationFile>
+	<NoWarn>$(NoWarn);1591</NoWarn>
 </PropertyGroup>
+```
 
-To add custom swagger annotation, go to UsersController.cs and add this:
-// GET: api/users with pagination
+To add custom swagger annotation, go to `UsersController.cs` and add this:
+
+```csharp
 // to use it in Postman http://localhost:5000/api/users?page=2&pageSize=5
+// GET: api/users with pagination
 /// <summary>
 /// Retrieves all users with pagination.
 /// </summary>
 /// <param name="page">The page number of the pagination.</param>
 /// <param name="pageSize">The number of items per page.</param>
 /// <returns>A list of users with pagination information.</returns>
-[HttpGet]
+[HttpGet];
+```
+
+## JWT and Authentication
+
+Install libraries:
+
+```bash
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+dotnet add package BCrypt.Net-Next
+```
+
+update `appsettings.json`:
+
+```json
+"Jwt": {
+"Key": "your_super_secret_key_here"
+}
+```
+
+Inside `Program.cs` import the following:
+
+```csharp
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+```
+
+And afterwards add this:
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+            };
+});
+```
+
+Update the `AddSwaggerGen` builder to include the following:
+
+```csharp
+ c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                },
+                Scheme = "oauth2",
+                Name = "Bearer",
+                In = ParameterLocation.Header
+            },
+            new List<string>()
+        }
+    });
+```
+
+And lastly, at the bottom add:
+
+```csharp
+app.UseHttpsRedirection();
+
+app.UseAuthentication(); // This line
+app.UseAuthorization(); // And this line
+app.MapControllers();
+
+app.Run();
+```
+
+Now, let's create custom DTOs for login and register inside `DTOs/AuthDTO/AuthDTO.cs`:
+
+```csharp
+namespace blog_website_api.DTOs.AuthDTO
+
+{
+public record RegisterDto(string FirstName, string LastName, string Email, string Password);
+public record LoginDto(string Email, string Password);
+}
+```
+
+Now we can build our `AuthController` that responsible for register and login logic.
+Create `AuthController.cs` and add the following code:
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using blog_website_api.Data;
+using blog_website_api.Models;
+using MongoDB.Driver;
+using System.Threading.Tasks;
+using BCrypt.Net;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.Text;
+using blog_website_api.DTOs.AuthDTO;
+
+namespace blog_website_api.Controllers
+{
+[ApiController]
+[Route("api/[controller]")]
+public class AuthController : ControllerBase
+{
+private readonly MongoDbContext \_context;
+private readonly IConfiguration \_configuration;
+
+        public AuthController(MongoDbContext context, IConfiguration configuration)
+        {
+            _context = context;
+            _configuration = configuration;
+        }
+
+
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
+        {
+            var userExists = await _context.Users.Find(x => x.Email == registerDto.Email).FirstOrDefaultAsync();
+            if (userExists != null)
+            {
+                return BadRequest("User already exists.");
+            }
+
+            var user = new User
+            {
+                FirstName = registerDto.FirstName,
+                LastName = registerDto.LastName,
+                Email = registerDto.Email,
+                Password = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
+                Role = "USER"
+            };
+
+            await _context.Users.InsertOneAsync(user);
+            return StatusCode(201);
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+        {
+            var user = await _context.Users.Find(x => x.Email == loginDto.Email).FirstOrDefaultAsync();
+            if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.Password))
+            {
+                return Unauthorized("Invalid credentials.");
+            }
+
+            var token = GenerateJwtToken(user);
+            return Ok(new { Token = token });
+        }
+
+        private string GenerateJwtToken(User user)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]);
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new Claim[]
+                {
+                    new Claim("userId", user.Id),
+                    new Claim("email", user.Email),
+                    new Claim("role", user.Role)
+                }),
+
+                Expires = DateTime.UtcNow.AddDays(1),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),
+                IssuedAt = DateTime.UtcNow,
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
+
+    }
+
+}
+
+```
