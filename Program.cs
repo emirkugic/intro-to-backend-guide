@@ -1,7 +1,7 @@
 using blog_website_api.Data;
-using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,7 +21,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddSingleton<MongoDbContext>();
+
 builder.Services.AddControllers();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -29,15 +31,15 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Blog Website API",
         Version = "v1",
-        Description = "An API for managing users in a blog website.",
+        Description = "An API for managing users in a blog website",
         Contact = new OpenApiContact
         {
             Name = "Emir Kugic",
             Email = "emir.kugic@stu.ibu.edu.ba",
             Url = new Uri("https://www.ibu.edu.ba/")
-        },
-
+        }
     });
+
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath);
@@ -47,9 +49,10 @@ builder.Services.AddSwaggerGen(c =>
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
         Name = "Authorization",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer"
     });
+
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -60,14 +63,14 @@ builder.Services.AddSwaggerGen(c =>
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 },
-                Scheme = "oauth2",
-                Name = "Bearer",
-                In = ParameterLocation.Header
+                Scheme = "bearer",
+                In = ParameterLocation.Header,
             },
             new List<string>()
         }
     });
 });
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -76,12 +79,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-
 app.UseHttpsRedirection();
-
-
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();

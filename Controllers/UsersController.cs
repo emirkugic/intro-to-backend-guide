@@ -4,11 +4,13 @@ using blog_website_api.Data;
 using blog_website_api.Models;
 using MongoDB.Driver;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace blog_website_api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class UsersController : ControllerBase
     {
         private readonly MongoDbContext _context;
@@ -21,6 +23,7 @@ namespace blog_website_api.Controllers
 
         // GET: api/users/all
         [HttpGet("all")]
+        [Authorize(Roles = "ADMIN")]
         public async Task<IActionResult> GetAllUsers()
         {
             var users = await _context.Users.Find(_ => true).ToListAsync();
@@ -57,6 +60,7 @@ namespace blog_website_api.Controllers
 
         // GET: api/users/5
         [HttpGet("{id}")]
+        [Authorize(Roles = "ADMIN,USER")]
         public async Task<IActionResult> GetUser(string id)
         {
             var user = await _context.Users.Find<User>(u => u.Id == id).FirstOrDefaultAsync();

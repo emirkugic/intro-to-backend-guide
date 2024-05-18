@@ -2,8 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using blog_website_api.Data;
 using blog_website_api.Models;
 using MongoDB.Driver;
-using System.Threading.Tasks;
-using BCrypt.Net;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -70,19 +68,18 @@ namespace blog_website_api.Controllers
             {
                 Subject = new ClaimsIdentity(new Claim[]
                 {
-                    new Claim("userId", user.Id),
-                    new Claim("email", user.Email),
-                    new Claim("role", user.Role)
+                    new Claim(ClaimTypes.NameIdentifier, user.Id),
+                    new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(ClaimTypes.Role, user.Role)  // Make sure the role is added as a claim
                 }),
-
                 Expires = DateTime.UtcNow.AddDays(1),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),
-                IssuedAt = DateTime.UtcNow,
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
+
 
     }
 

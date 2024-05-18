@@ -306,23 +306,48 @@ Inside Program.cs update `builder.Services.AddSwaggerGen();` to this:
 ```csharp
 builder.Services.AddSwaggerGen(c =>
 {
-c.SwaggerDoc("v1", new OpenApiInfo
-{
-Title = "Blog Website API",
-Version = "v1",
-Description = "An API for managing users in a blog website.",
-Contact = new OpenApiContact
-{
-Name = "Emir Kugic",
-Email = "emir.kugic@stu.ibu.edu.ba",
-Url = new Uri("https://www.ibu.edu.ba/")
-},
-
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Blog Website API",
+        Version = "v1",
+        Description = "An API for managing users in a blog website",
+        Contact = new OpenApiContact
+        {
+            Name = "Emir Kugic",
+            Email = "emir.kugic@stu.ibu.edu.ba",
+            Url = new Uri("https://www.ibu.edu.ba/")
+        }
     });
+
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath);
 
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                },
+                Scheme = "bearer",
+                In = ParameterLocation.Header,
+            },
+            new List<string>()
+        }
+    });
 });
 ```
 
@@ -355,7 +380,7 @@ To add custom swagger annotation, go to `UsersController.cs` and add this:
 [HttpGet];
 ```
 
-## JWT and Authentication
+## JWT and Role based authorization
 
 Install libraries:
 
@@ -401,14 +426,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 Update the `AddSwaggerGen` builder to include the following:
 
 ```csharp
- c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
         Name = "Authorization",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer"
     });
+
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -419,9 +445,8 @@ Update the `AddSwaggerGen` builder to include the following:
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
                 },
-                Scheme = "oauth2",
-                Name = "Bearer",
-                In = ParameterLocation.Header
+                Scheme = "bearer",
+                In = ParameterLocation.Header,
             },
             new List<string>()
         }
@@ -440,6 +465,99 @@ app.MapControllers();
 app.Run();
 ```
 
+Final code should look like this:
+
+```csharp
+using blog_website_api.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+builder.Services.AddSingleton<MongoDbContext>();
+
+builder.Services.AddControllers();
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Blog Website API",
+        Version = "v1",
+        Description = "An API for managing users in a blog website",
+        Contact = new OpenApiContact
+        {
+            Name = "Emir Kugic",
+            Email = "emir.kugic@stu.ibu.edu.ba",
+            Url = new Uri("https://www.ibu.edu.ba/")
+        }
+    });
+
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                },
+                Scheme = "bearer",
+                In = ParameterLocation.Header,
+            },
+            new List<string>()
+        }
+    });
+});
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+```
+
 Now, let's create custom DTOs for login and register inside `DTOs/AuthDTO/AuthDTO.cs`:
 
 ```csharp
@@ -451,7 +569,7 @@ public record LoginDto(string Email, string Password);
 }
 ```
 
-Now we can build our `AuthController` that responsible for register and login logic.
+Now we can build our `AuthController` that's responsible for register and login logic.
 Create `AuthController.cs` and add the following code:
 
 ```csharp
@@ -459,8 +577,6 @@ using Microsoft.AspNetCore.Mvc;
 using blog_website_api.Data;
 using blog_website_api.Models;
 using MongoDB.Driver;
-using System.Threading.Tasks;
-using BCrypt.Net;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -469,12 +585,12 @@ using blog_website_api.DTOs.AuthDTO;
 
 namespace blog_website_api.Controllers
 {
-[ApiController]
-[Route("api/[controller]")]
-public class AuthController : ControllerBase
-{
-private readonly MongoDbContext \_context;
-private readonly IConfiguration \_configuration;
+    [ApiController]
+    [Route("api/[controller]")]
+    public class AuthController : ControllerBase
+    {
+        private readonly MongoDbContext _context;
+        private readonly IConfiguration _configuration;
 
         public AuthController(MongoDbContext context, IConfiguration configuration)
         {
@@ -527,14 +643,12 @@ private readonly IConfiguration \_configuration;
             {
                 Subject = new ClaimsIdentity(new Claim[]
                 {
-                    new Claim("userId", user.Id),
-                    new Claim("email", user.Email),
-                    new Claim("role", user.Role)
+                    new Claim(ClaimTypes.NameIdentifier, user.Id),
+                    new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(ClaimTypes.Role, user.Role)
                 }),
-
                 Expires = DateTime.UtcNow.AddDays(1),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),
-                IssuedAt = DateTime.UtcNow,
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
@@ -545,4 +659,116 @@ private readonly IConfiguration \_configuration;
 
 }
 
+```
+
+To actually apply authentication role based authorization to your endpoints/routes:
+
+```csharp
+// Located in Controllers/UsersController.cs
+using Microsoft.AspNetCore.Mvc;
+using blog_website_api.Data;
+using blog_website_api.Models;
+using MongoDB.Driver;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+
+namespace blog_website_api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    [Authorize]
+    public class UsersController : ControllerBase
+    {
+        private readonly MongoDbContext _context;
+
+        public UsersController(MongoDbContext context)
+        {
+            _context = context;
+        }
+
+
+        // GET: api/users/all
+        [HttpGet("all")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var users = await _context.Users.Find(_ => true).ToListAsync();
+            return Ok(users);
+        }
+
+
+        // GET: api/users with pagination
+        // to use it in Postman http://localhost:5000/api/users?page=2&pageSize=5
+        /// <summary>
+        /// Retrieves all users with pagination.
+        /// </summary>
+        /// <param name="page">The page number of the pagination.</param>
+        /// <param name="pageSize">The number of items per page.</param>
+        /// <returns>A list of users with pagination information.</returns>
+        [HttpGet]
+        public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var usersQuery = _context.Users.Find(_ => true);
+            var totalItems = await usersQuery.CountDocumentsAsync();
+            var users = await usersQuery.Skip((page - 1) * pageSize).Limit(pageSize).ToListAsync();
+            var response = new
+            {
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize,
+                TotalPages = (int)System.Math.Ceiling(totalItems / (double)pageSize),
+                Items = users
+            };
+
+            return Ok(response);
+        }
+
+
+        // GET: api/users/5
+        [HttpGet("{id}")]
+        [Authorize(Roles = "ADMIN,USER")]
+        public async Task<IActionResult> GetUser(string id)
+        {
+            var user = await _context.Users.Find<User>(u => u.Id == id).FirstOrDefaultAsync();
+            if (user == null)
+            {
+                return NotFound();
+            }
+            return Ok(user);
+        }
+
+        // POST: api/users
+        [HttpPost]
+        public async Task<IActionResult> CreateUser([FromBody] User user)
+        {
+            await _context.Users.InsertOneAsync(user);
+            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
+        }
+
+        // PUT: api/users/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateUser(string id, [FromBody] User updatedUser)
+        {
+            var result = await _context.Users.ReplaceOneAsync(u => u.Id == id, updatedUser);
+            if (result.ModifiedCount == 0)
+            {
+                return NotFound();
+            }
+            return NoContent();
+        }
+
+
+        // DELETE: api/users/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser(string id)
+        {
+            var result = await _context.Users.DeleteOneAsync(u => u.Id == id);
+            if (result.DeletedCount == 0)
+            {
+                return NotFound();
+            }
+            return NoContent();
+        }
+    }
+}
 ```
