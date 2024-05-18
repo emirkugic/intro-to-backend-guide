@@ -1,4 +1,5 @@
 using blog_website_api.Data;
+using blog_website_api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -20,8 +21,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+builder.Services.AddSingleton<ImgurService>();
 builder.Services.AddSingleton<MongoDbContext>();
-
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -69,6 +70,7 @@ builder.Services.AddSwaggerGen(c =>
             new List<string>()
         }
     });
+    c.OperationFilter<SwaggerFileOperationFilter>();
 });
 
 var app = builder.Build();

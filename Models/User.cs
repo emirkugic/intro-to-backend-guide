@@ -24,5 +24,11 @@ namespace blog_website_api.Models
 
         [BsonElement("role")]
         public required string Role { get; set; }
+
+        [BsonElement("profileImage")]
+        public string? ProfileImage { get; set; }
+
+        [BsonElement("profileImageDeleteHash")]
+        public string? ProfileImageDeleteHash { get; set; }
     }
 }

@@ -1,10 +1,11 @@
-// Located in Controllers/UsersController.cs
 using Microsoft.AspNetCore.Mvc;
 using blog_website_api.Data;
 using blog_website_api.Models;
 using MongoDB.Driver;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using blog_website_api.Services;
+using blog_website_api.DTOs.imageDTO.blog_website_api.DTOs;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace blog_website_api.Controllers
 {
@@ -14,10 +15,12 @@ namespace blog_website_api.Controllers
     public class UsersController : ControllerBase
     {
         private readonly MongoDbContext _context;
+        private readonly ImgurService _imgurService;
 
-        public UsersController(MongoDbContext context)
+        public UsersController(MongoDbContext context, ImgurService imgurService)
         {
             _context = context;
+            _imgurService = imgurService;
         }
 
 
@@ -102,6 +105,63 @@ namespace blog_website_api.Controllers
                 return NotFound();
             }
             return NoContent();
+        }
+
+
+
+        [HttpPost("{id}/uploadImage")]
+        [SwaggerOperation(Summary = "Upload a profile image for the user.")]
+        [SwaggerResponse(200, "Image uploaded successfully.", typeof(string))]
+        [SwaggerResponse(404, "User not found.")]
+        [SwaggerResponse(500, "Image upload failed.")]
+        public async Task<IActionResult> UploadImage(string id, [FromForm] ImageDto imageDto)
+        {
+            var user = await _context.Users.Find(u => u.Id == id).FirstOrDefaultAsync();
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            using var memoryStream = new MemoryStream();
+            await imageDto.Image.CopyToAsync(memoryStream);
+            var (imageUrl, deleteHash) = await _imgurService.UploadImageAsync(memoryStream.ToArray());
+            user.ProfileImage = imageUrl;
+            user.ProfileImageDeleteHash = deleteHash;
+            await _context.Users.ReplaceOneAsync(u => u.Id == id, user);
+
+            return Ok(new { ImageUrl = imageUrl });
+        }
+
+        [HttpDelete("{id}/deleteImage")]
+        [SwaggerOperation(Summary = "Delete a profile image for the user.")]
+        [SwaggerResponse(204, "Image deleted successfully.")]
+        [SwaggerResponse(404, "User not found.")]
+        [SwaggerResponse(400, "Image deletion failed.")]
+        public async Task<IActionResult> DeleteImage(string id)
+        {
+            var user = await _context.Users.Find(u => u.Id == id).FirstOrDefaultAsync();
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            if (user.ProfileImageDeleteHash == null)
+            {
+                return BadRequest("No image to delete.");
+            }
+
+            var success = await _imgurService.DeleteImageAsync(user.ProfileImageDeleteHash);
+            if (success)
+            {
+                user.ProfileImage = null;
+                user.ProfileImageDeleteHash = null;
+                await _context.Users.ReplaceOneAsync(u => u.Id == id, user);
+                return NoContent();
+            }
+            else
+            {
+                return BadRequest("Image deletion failed.");
+            }
         }
     }
 }
