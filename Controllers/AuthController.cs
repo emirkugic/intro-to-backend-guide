@@ -59,6 +59,18 @@ namespace blog_website_api.Controllers
             var token = GenerateJwtToken(user);
             return Ok(new { Token = token });
         }
+        [HttpPost("login2")]
+        public async Task<IActionResult> Login2([FromBody] LoginDto loginDto)
+        {
+            var user = await _context.Users.Find(x => x.Email == loginDto.Email).FirstOrDefaultAsync();
+            if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.Password))
+            {
+                return Unauthorized("Invalid credentials.");
+            }
+
+            var token = GenerateJwtToken(user);
+            return Ok(new { Token = token });
+        }
 
         private string GenerateJwtToken(User user)
         {
@@ -70,7 +82,7 @@ namespace blog_website_api.Controllers
                 {
                     new Claim(ClaimTypes.NameIdentifier, user.Id),
                     new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Role, user.Role)  // Make sure the role is added as a claim
+                    new Claim(ClaimTypes.Role, user.Role)
                 }),
                 Expires = DateTime.UtcNow.AddDays(1),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)

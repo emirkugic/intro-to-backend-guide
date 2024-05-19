@@ -1,8 +1,4 @@
-// Services/ImgurService.cs
-using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json.Linq;
 
 namespace blog_website_api.Services
@@ -29,10 +25,10 @@ namespace blog_website_api.Services
             response.EnsureSuccessStatusCode();
             var data = JObject.Parse(await response.Content.ReadAsStringAsync());
 
-            var imageUrl = data["data"]["link"].ToString();
-            var deleteHash = data["data"]["deletehash"].ToString();
+            var imageUrl = data["data"]?["link"]?.ToString();
+            var deleteHash = data["data"]?["deletehash"]?.ToString();
 
-            return (imageUrl, deleteHash);
+            return (imageUrl!, deleteHash!);
         }
 
         public async Task<bool> DeleteImageAsync(string deleteHash)
