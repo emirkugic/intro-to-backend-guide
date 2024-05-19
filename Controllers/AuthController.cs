@@ -59,18 +59,6 @@ namespace blog_website_api.Controllers
             var token = GenerateJwtToken(user);
             return Ok(new { Token = token });
         }
-        [HttpPost("login2")]
-        public async Task<IActionResult> Login2([FromBody] LoginDto loginDto)
-        {
-            var user = await _context.Users.Find(x => x.Email == loginDto.Email).FirstOrDefaultAsync();
-            if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.Password))
-            {
-                return Unauthorized("Invalid credentials.");
-            }
-
-            var token = GenerateJwtToken(user);
-            return Ok(new { Token = token });
-        }
 
         private string GenerateJwtToken(User user)
         {

@@ -32,7 +32,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Blog Website API",
         Version = "v1",
-        Description = "An API for managing users in a blog website",
+        Description = "An API for a blog website",
         Contact = new OpenApiContact
         {
             Name = "Emir Kugic",
