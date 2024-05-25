@@ -19,6 +19,7 @@ cd blog-website-api
 ### Step 3: Install Dependencies
 
 Install the necessary libraries and dependencies by running the following commands:
+You can skip this step.
 
 ```bash
 dotnet add package BCrypt.Net-Next --version 4.0.3
@@ -790,8 +791,8 @@ Click submit and save client ID and client secret inside appsettings.json:
 
 ```json
 "Imgur": {
-    "ClientId": "2dacf70338ca80e",
-    "ClientSecret": "bb7788bbdaf3db86b867dfcc5b07a8fd5ed70c5c"
+    "ClientId": "your_client_id",
+    "ClientSecret": "your_client_secret"
 }
 ```
 
