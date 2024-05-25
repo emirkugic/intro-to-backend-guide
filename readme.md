@@ -311,7 +311,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Blog Website API",
         Version = "v1",
-        Description = "An API for managing users in a blog website",
+        Description = "An API for managing a blog website",
         Contact = new OpenApiContact
         {
             Name = "Emir Kugic",
@@ -320,9 +320,16 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
-    c.IncludeXmlComments(xmlPath);
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
+    else
+    {
+        Console.WriteLine($"Warning: XML documentation file not found at {xmlPath}");
+    }
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
