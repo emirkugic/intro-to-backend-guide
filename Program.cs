@@ -8,6 +8,7 @@ using AspNetCoreRateLimit;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add authentication services
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -22,10 +23,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+// Add singleton services
 builder.Services.AddSingleton<ImgurService>();
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddControllers();
 
+// Add Swagger services
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -87,19 +90,16 @@ builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Blog Website API V1");
+    c.RoutePrefix = string.Empty;
+});
 
 app.UseHttpsRedirection();
-
 app.UseIpRateLimiting();
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
