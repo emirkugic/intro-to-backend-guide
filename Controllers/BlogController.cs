@@ -12,7 +12,7 @@ namespace blog_website_api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    // [Authorize]
     public class BlogsController : ControllerBase
     {
         private readonly MongoDbContext _context;
@@ -112,6 +112,30 @@ namespace blog_website_api.Controllers
             }).ToList();
 
             return Ok(new { TotalCount = totalBlogs, Page = page, PageSize = pageSize, Blogs = response });
+        }
+
+
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAllBlogsNoPagination()
+        {
+            var blogs = await _context.Blogs.Find(_ => true).ToListAsync();
+            var userIds = blogs.Select(b => b.UserId).Distinct().ToList();
+            var users = await _context.Users.Find(u => userIds.Contains(u.Id)).ToListAsync();
+            var userDictionary = users.ToDictionary(u => u.Id!, u => new { u.FirstName, u.LastName });
+
+            var response = blogs.Select(b => new BlogResponseDto
+            {
+                Id = b.Id,
+                Title = b.Title,
+                Description = b.Description,
+                DateCreated = b.DateCreated,
+                ImageUrl = b.ImageUrl,
+                UserId = b.UserId,
+                FirstName = userDictionary[b.UserId].FirstName,
+                LastName = userDictionary[b.UserId].LastName
+            }).ToList();
+
+            return Ok(new { Blogs = response });
         }
 
 
