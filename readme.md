@@ -1,4 +1,4 @@
-# Introduction to Backend Development with .NET
+# Introduction to Backend Development Workshop with .NET by Emir Kugić
 
 ## Setup Instructions
 
